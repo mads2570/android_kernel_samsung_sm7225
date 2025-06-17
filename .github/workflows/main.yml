@@ -62,7 +62,10 @@ jobs:
           git clone --depth=1 -b androidcc-4.9 https://github.com/rsuntk/toolchains.git google
           # Fix bin path for google toolchain if needed
           if [ ! -d google/bin ]; then
-            find google -type d -name bin | head -n1 | xargs -I {} mv {} google/bin
+            BIN_PATH=$(find google -type d -name bin | head -n1)
+            if [ -n "$BIN_PATH" ]; then
+              mv "$BIN_PATH" google/bin
+            fi
           fi
         working-directory: kernel_root
 
