@@ -53,7 +53,10 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --tags --force
         working-directory: kernel_root
-
+        
+      - name: Symlink python to python2
+        run: sudo ln -sf /usr/bin/python2 /usr/bin/python
+  
       - name: Fetch toolchains (Clang 11 + GCC 4.9)
         run: |
           mkdir toolchains && cd toolchains
