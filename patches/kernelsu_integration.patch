@@ -1,0 +1,19 @@
+diff --git a/drivers/Makefile b/drivers/Makefile
+index e8f194f..d77b2e8 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@
++# KernelSU integration
++obj-$(CONFIG_KSU) += KernelSU/
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 0f3f0c2..aec6b3e 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@
++source "drivers/KernelSU/Kconfig"
+diff --git a/arch/arm64/configs/vendor/a42xq_eur_open_defconfig b/arch/arm64/configs/vendor/a42xq_eur_open_defconfig
+index 55e5a7d..f0c0e8c 100644
+--- a/arch/arm64/configs/vendor/a42xq_eur_open_defconfig
++++ b/arch/arm64/configs/vendor/a42xq_eur_open_defconfig
+@@
++CONFIG_KSU=y
