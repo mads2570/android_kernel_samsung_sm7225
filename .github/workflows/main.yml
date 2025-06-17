@@ -2,16 +2,37 @@ name: Build Kernel with KernelSU Integration
 
 on:
   workflow_dispatch:
+    inputs:
+      BRANCH:
+        description: 'Branch to build'
+        required: true
+        default: 'ksu'
+      UPLOAD_TO_TG:
+        description: 'Upload to Telegram'
+        type: boolean
+        default: false
+      UPLOAD_TO_GH:
+        description: 'Upload to GitHub Release'
+        type: boolean
+        default: false
+      CHANGELOG:
+        description: 'Enter changelog'
+        required: true
+        default: 'No changelog provided'
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout kernel source
+      - name: Checkout Kernel Source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.BRANCH }}
+          path: kernel_root
+          fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib \
@@ -22,39 +43,53 @@ jobs:
 
       - name: Clone KernelSU
         run: |
+          cd kernel_root
           git clone --depth=1 https://github.com/tiann/KernelSU.git drivers/KernelSU
 
-      - name: Apply KernelSU integration patch
+      - name: Apply KernelSU Patch
         run: |
-          patch -p1 < Patches/kernelsu_integration.patch
+          cd kernel_root
+          patch -p1 < ../Patches/kernelsu_integration.patch
 
-      - name: (Optional) Integrate SUSFS
-        if: github.event.inputs.SUSFS_ENABLE == 'true'
+    Optional: Integrate SUSFS if needed
+      - name: Integrate SUSFS
         run: |
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-4.19 susfs4ksu --depth=1
-          cp susfs4ksu/kernel_patches/fs/* fs/ || true
-          cp susfs4ksu/kernel_patches/include/linux/* include/linux/ || true
+           cd kernel_root
+           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-4.19 susfs4ksu --depth=1
+           cp susfs4ksu/kernel_patches/fs/* fs/ || true
+           cp susfs4ksu/kernel_patches/include/linux/* include/linux/ || true
 
-      - name: Set up clang toolchain
+      - name: Set up Clang Toolchain
         run: |
           git clone --depth=1 -b 10.0 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6207600.git clang-custom
 
-      - name: Build kernel
+      - name: Build Kernel
         run: |
           export PATH=$GITHUB_WORKSPACE/clang-custom/bin:$PATH
+          cd kernel_root
           make O=out ARCH=arm64 vendor/a42xq_eur_open_defconfig
           make -j$(nproc --all) O=out ARCH=arm64
 
       - name: Package with AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3 --depth=1
-          cp out/arch/arm64/boot/Image* AnyKernel3/
-          cp -r out/arch/arm64/boot/dtb* AnyKernel3/ 2>/dev/null || true
+          cp kernel_root/out/arch/arm64/boot/Image* AnyKernel3/
+          cp -r kernel_root/out/arch/arm64/boot/dtb* AnyKernel3/ 2>/dev/null || true
           cd AnyKernel3
           zip -r9 ../a42xq-kernel-AnyKernel3.zip ./*
 
-      - name: Upload AnyKernel3 ZIP
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Kernel-a42xq-AnyKernel3
           path: a42xq-kernel-AnyKernel3.zip
+
+      - name: Upload to Telegram (if enabled)
+        if: ${{ github.event.inputs.UPLOAD_TO_TG == 'true' }}
+        run: |
+          echo "Add your Telegram upload script here"
+
+      - name: Upload to GitHub Release (if enabled)
+        if: ${{ github.event.inputs.UPLOAD_TO_GH == 'true' }}
+        run: |
+          echo "Add your GitHub release upload logic here"
