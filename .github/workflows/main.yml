@@ -38,7 +38,7 @@ jobs:
       - name: Checkout Kernel Source
         uses: actions/checkout@v4
         with:
-          repository: mads2570/a42-kernel
+          repository: mads2570/android_kernel_samsung_sm7225
           path: kernel_root
           ref: ${{ github.event.inputs.BRANCH }}
           show-progress: false
