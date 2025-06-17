@@ -6,7 +6,7 @@ on:
     inputs:
       BRANCH:
         description: Kernel branch
-        default: 'main'
+        default: 'ksu'
         required: true
       ROOT_IMPL:
        description: Select KSU
@@ -91,8 +91,9 @@ jobs:
           export KBUILD_BUILD_HOST="github"
           export BUILD_START=`date`
           export IS_CI=true
+          export CC=$(pwd)/toolchains/clang/bin/clang
 
-          export DEFCONFIG="a42xq_eur_open_defconfig"
+          export DEFCONFIG="vendor/a42xq_eur_open_defconfig"
           export DEVICE_ID="A42"
 
           bash $(pwd)/build_kernel.sh kernel --jobs $(nproc --all) $DEFCONFIG
@@ -194,7 +195,7 @@ jobs:
           name: "${{ steps.tag.outputs.tag_name }}"
           body: ${{ steps.changelog.outputs.changelog }}
           files: kernel_root/anykernel3/AnyKernel3-${{ github.event.inputs.AK3_NAME }}.zip
-          repository: maazm7d/kernel_samsung_a12
+          repository: mads2570/android_kernel_samsung_sm7225
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         
