@@ -57,10 +57,10 @@ jobs:
       - name: Symlink python to python2
         run: sudo ln -sf /usr/bin/python2 /usr/bin/python
   
-      - name: Fetch toolchains (Clang 11 + GCC 4.9)
+      - name: Fetch toolchains (Clang 10 + GCC 4.9)
         run: |
           mkdir toolchains && cd toolchains
-          git clone --depth=1 -b main https://github.com/SN-Abdullah-Al-Noman/llvm-arm-toolchain-ship-10.0.git clang
+          git clone --depth=1 -b clang-10 https://github.com/rsuntk/toolchains.git clang
           git clone --depth=1 -b androidcc-4.9 https://github.com/rsuntk/toolchains.git google
         working-directory: kernel_root
 
