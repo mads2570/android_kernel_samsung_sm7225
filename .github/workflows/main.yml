@@ -8,20 +8,21 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3 dos2unix p7zip p7zip-full
-
-      - name: Clone kernel source
-        run: |
-          git clone --recursive https://github.com/mads2570/android_kernel_samsung_sm7225 -b ksu kernel_src --depth=1
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib \
+            libxml2-utils bzip2 libbz2-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven \
+            libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 \
+            lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3 dos2unix \
+            p7zip p7zip-full
 
       - name: Clone KernelSU
         run: |
-          git clone --depth=1 https://github.com/tiann/KernelSU.git kernel_src/drivers/KernelSU
+          git clone --depth=1 https://github.com/tiann/KernelSU.git drivers/KernelSU
 
       - name: Add KernelSU integration patch
         run: |
@@ -46,34 +47,30 @@ index 55e5a7d..f0c0e8c 100644
 @@
 +CONFIG_KSU=y
 EOF
-          cd kernel_src
-          patch -p1 < ../kernelsu_integration.patch
+          patch -p1 < kernelsu_integration.patch
 
       - name: (Optional) Integrate SUSFS
-        if: ${{ env.SUSFS_ENABLE == 'true' }}
+        if: github.event.inputs.SUSFS_ENABLE == 'true'
         run: |
-          cd kernel_src
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-4.19 susfs4ksu --depth=1
           cp susfs4ksu/kernel_patches/fs/* fs/ || true
           cp susfs4ksu/kernel_patches/include/linux/* include/linux/ || true
 
-      - name: Set up toolchains (Clang/GCC)
+      - name: Set up clang toolchain
         run: |
-          # You can expand this for GCC if needed
           git clone --depth=1 -b 10.0 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6207600.git clang-custom
 
       - name: Build kernel
         run: |
           export PATH=$GITHUB_WORKSPACE/clang-custom/bin:$PATH
-          cd kernel_src
           make O=out ARCH=arm64 vendor/a42xq_eur_open_defconfig
           make -j$(nproc --all) O=out ARCH=arm64
 
       - name: Package with AnyKernel3
         run: |
           git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3 --depth=1
-          cp kernel_src/out/arch/arm64/boot/Image* AnyKernel3/
-          cp -r kernel_src/out/arch/arm64/boot/dtb* AnyKernel3/ 2>/dev/null || true
+          cp out/arch/arm64/boot/Image* AnyKernel3/
+          cp -r out/arch/arm64/boot/dtb* AnyKernel3/ 2>/dev/null || true
           cd AnyKernel3
           zip -r9 ../a42xq-kernel-AnyKernel3.zip ./*
 
