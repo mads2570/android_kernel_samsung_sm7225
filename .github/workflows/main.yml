@@ -1,4 +1,3 @@
-
 name: Build Kernel
 
 on:
@@ -9,13 +8,13 @@ on:
         default: 'ksu'
         required: true
       ROOT_IMPL:
-       description: Select KSU
-       required: true
-       default: 'kernelsu-next'
-       type: choice
-       options:
-         - kernelsu-next
-         - sukisu
+        description: Select KSU
+        required: true
+        default: 'kernelsu-next'
+        type: choice
+        options:
+          - kernelsu-next
+          - sukisu
       AK3_NAME:
         description: Enter custom name for AnyKernel3 artifact
         required: true
@@ -47,22 +46,37 @@ jobs:
       - name: Prepare dependencies + fetch tags
         run: |
           sudo apt update -y
-            sudo apt-get install git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 dos2unix libncurses5
-            sudo apt-get install p7zip p7zip-full -y
-            sudo ls -lah /usr/bin/ | grep "python"
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 dos2unix libncurses5 p7zip p7zip-full
+          sudo ls -lah /usr/bin/ | grep "python"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --tags --force
         working-directory: kernel_root
-        
+
       - name: Symlink python to python2
         run: sudo ln -sf /usr/bin/python2 /usr/bin/python
-  
+
       - name: Fetch toolchains (Clang 10 + GCC 4.9)
         run: |
-          mkdir toolchains && cd toolchains
+          mkdir -p toolchains && cd toolchains
           git clone --depth=1 -b 10.0 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6207600.git clang
           git clone --depth=1 -b androidcc-4.9 https://github.com/rsuntk/toolchains.git google
+          # Fix bin path for google toolchain if needed
+          if [ ! -d google/bin ]; then
+            find google -type d -name bin | head -n1 | xargs -I {} mv {} google/bin
+          fi
         working-directory: kernel_root
+
+      - name: List toolchain bins
+        run: |
+          ls -l kernel_root/toolchains/clang/bin
+          ls -l kernel_root/toolchains/google/bin
+        working-directory: .
+
+      - name: Verify toolchains
+        run: |
+          kernel_root/toolchains/google/bin/aarch64-linux-android-gcc --version
+          kernel_root/toolchains/clang/bin/clang --version
+        working-directory: .
 
       - name: Set timezone (Asia/Kolkata)
         run: |
@@ -73,11 +87,11 @@ jobs:
         run: |
           case "${{ github.event.inputs.ROOT_IMPL }}" in
           kernelsu-next)
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
-          ;;
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
+            ;;
           sukisu)
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
-          ;;
+            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
+            ;;
           esac
         working-directory: kernel_root
 
@@ -97,22 +111,21 @@ jobs:
           export DEVICE_ID="A42"
 
           bash $(pwd)/build_kernel.sh kernel --jobs $(nproc --all) $DEFCONFIG
-        
+
           echo -e "Localversion: $(./scripts/setlocalversion)\n\nClang version: $(clang -v 2>&1 | grep ' version ' | sed 's/[[:space:]]*$//')\n\nBuild: $BUILD_START\n\nDefconfig: $DEFCONFIG\n\nChangelog: ${{ github.event.inputs.CHANGELOG }}" > buildDetails.txt
 
- 
           echo "TITLE=Galaxy `echo $DEVICE_ID` Kernel" >> $GITHUB_ENV
 
           mv .config build_config.txt
           gitsha1=$(git rev-parse --short HEAD)
           buildDetails="`make kernelversion`-`echo $DEVICE`_`echo $gitsha1`-`date +'%Y%m%d%H%M%S'`" && echo "buildDetails=$buildDetails" >> $GITHUB_OUTPUT
-        working-directory: kernel_root   
+        working-directory: kernel_root
 
       - name: Upload config
         uses: actions/upload-artifact@v4
         with:
-         name: Config-${{ steps.buildKernel.outputs.buildDetails }}
-         path: kernel_root/build_config.txt
+          name: Config-${{ steps.buildKernel.outputs.buildDetails }}
+          path: kernel_root/build_config.txt
 
       - name: Upload kernel images
         uses: actions/upload-artifact@v4
@@ -146,7 +159,7 @@ jobs:
           cd kernel_root/anykernel3
           zip -r9 "AnyKernel3-${{ github.event.inputs.AK3_NAME }}.zip" ./*
           ls -lh "AnyKernel3-${{ github.event.inputs.AK3_NAME }}.zip"
-          
+
       - name: Upload to Telegram
         if: github.event.inputs.UPLOAD_TO_TG == 'true'
         env:
@@ -154,10 +167,10 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then   
-          ZIP="./anykernel3/AnyKernel3-${{ github.event.inputs.AK3_NAME }}.zip"
-          cat buildDetails.txt
-          git clone https://github.com/maazm7d/builder.git --depth=1 i && cp ./i/xedbot.sh . && rm -rf i
-          bash $(pwd)/xedbot.sh "$ZIP" "`cat buildDetails.txt`"
+            ZIP="./anykernel3/AnyKernel3-${{ github.event.inputs.AK3_NAME }}.zip"
+            cat buildDetails.txt
+            git clone https://github.com/maazm7d/builder.git --depth=1 i && cp ./i/xedbot.sh . && rm -rf i
+            bash $(pwd)/xedbot.sh "$ZIP" "`cat buildDetails.txt`"
           fi
         working-directory: kernel_root
 
@@ -167,14 +180,13 @@ jobs:
           set -e
           latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -z "$latest_tag" ]; then
-          echo "No previous tag found. Using full commit history."
-          changelog=$(git log --pretty=format:"- %s (%an)" --no-merges)
+            echo "No previous tag found. Using full commit history."
+            changelog=$(git log --pretty=format:"- %s (%an)" --no-merges)
           else
-          echo "Found last tag: $latest_tag"
-          changelog=$(git log "${latest_tag}..HEAD" --pretty=format:"- %s (%an)" --no-merges)
+            echo "Found last tag: $latest_tag"
+            changelog=$(git log "${latest_tag}..HEAD" --pretty=format:"- %s (%an)" --no-merges)
           fi
 
-                # Save changelog to output
           echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
           echo "$changelog" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -198,4 +210,3 @@ jobs:
           repository: mads2570/android_kernel_samsung_sm7225
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-        
