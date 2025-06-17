@@ -1,4 +1,4 @@
-name: Build Kernel with KSU, SUSFS, AnyKernel3
+name: Build Kernel with KernelSU Integration
 
 on:
   workflow_dispatch:
@@ -10,138 +10,75 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Prepare configuration from Profiles
-      - name: Prepare Configuration
-        run: |
-          CONFIG_ENV="Profiles/a42xq_oneui5.1.env"  # <-- Adjust for your profile
-          CONFIG_LIST=(
-              DEVICE_NAME
-              DEVICE_CODENAME
-              CUSTOM_CMDS
-              EXTRA_CMDS
-              KERNEL_SOURCE
-              KERNEL_BRANCH
-              CLANG_SOURCE
-              CLANG_BRANCH
-              GCC_64_SOURCE
-              GCC_64_BRANCH
-              GCC_32_SOURCE
-              GCC_32_BRANCH
-              DEFCONFIG_SOURCE
-              DEFCONFIG_NAME
-              KERNELSU_SOURCE
-              KERNELSU_BRANCH
-              KERNELSU_NAME
-              SUSFS_ENABLE
-              SUSFS_FIXED
-              AK3_SOURCE
-              AK3_BRANCH
-              BOOT_SOURCE
-              LXC_ENABLE
-              ROM_TEXT
-          )
-          for CONFIG in "${CONFIG_LIST[@]}"; do
-              if [[ "$CONFIG" == "EXTRA_CMDS" || "$CONFIG" == "CUSTOM_CMDS" ]]; then
-                  echo "$CONFIG=$(grep -w "$CONFIG" "$CONFIG_ENV" | head -n 1 | cut -d ":" -f 2)" >> $GITHUB_ENV
-              else
-                  echo "$CONFIG=$(grep -w "$CONFIG" "$CONFIG_ENV" | head -n 1 | cut -d "=" -f 2)" >> $GITHUB_ENV
-              fi
-          done
-
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3 dos2unix p7zip p7zip-full
 
-      # Toolchain setup (GCC/Clang)
-      - name: Set up toolchains
-        run: |
-          cd $GITHUB_WORKSPACE
-
-          # GCC 64
-          if [[ -n "${{ env.GCC_64_SOURCE }}" ]]; then
-            if [[ "${{ env.GCC_64_SOURCE }}" == *".git" ]]; then
-              git clone ${{ env.GCC_64_SOURCE }} -b ${{ env.GCC_64_BRANCH }} gcc-64 --depth=1
-            elif [[ "${{ env.GCC_64_SOURCE }}" == *'.tar.gz' ]]; then
-              wget -O gcc-64.tar.gz ${{ env.GCC_64_SOURCE }}
-              mkdir gcc-64
-              tar -C gcc-64/ -zxvf gcc-64.tar.gz
-            elif [[ "${{ env.GCC_64_SOURCE }}" == *'.zip' ]]; then
-              wget -O gcc-64.zip ${{ env.GCC_64_SOURCE }}
-              mkdir gcc-64
-              unzip gcc-64.zip -d gcc-64/
-            fi
-            if [ ! -d gcc-64/bin ]; then
-              BIN_PATH=$(find gcc-64 -type d -name bin | head -n1)
-              if [ -n "$BIN_PATH" ]; then
-                mv "$BIN_PATH" gcc-64/bin
-              fi
-            fi
-            echo "GCC_64=CROSS_COMPILE=$GITHUB_WORKSPACE/gcc-64/bin/aarch64-linux-android-" >> $GITHUB_ENV
-          fi
-
-          # Clang
-          if [[ "${{ env.CLANG_SOURCE }}" == *".git" ]]; then
-            git clone ${{ env.CLANG_SOURCE }} -b ${{ env.CLANG_BRANCH }} clang-custom --depth=1
-          elif [[ "${{ env.CLANG_SOURCE }}" == *'.tar.gz' ]]; then
-            wget -O clang.tar.gz ${{ env.CLANG_SOURCE }}
-            mkdir clang-custom
-            tar -C clang-custom/ -zxvf clang.tar.gz
-          elif [[ "${{ env.CLANG_SOURCE }}" == *'.zip' ]]; then
-            wget -O clang.zip ${{ env.CLANG_SOURCE }}
-            mkdir clang-custom
-            unzip clang.zip -d clang-custom/
-          fi
-
       - name: Clone kernel source
         run: |
-          git clone --recursive ${{ env.KERNEL_SOURCE }} -b ${{ env.KERNEL_BRANCH }} kernel_src --depth=1
-          if [[ -n "${{ env.DEFCONFIG_SOURCE }}" ]]; then
-            wget ${{ env.DEFCONFIG_SOURCE }} -O kernel_src/arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          fi
+          git clone --recursive https://github.com/mads2570/android_kernel_samsung_sm7225 -b ksu kernel_src --depth=1
 
-      # KernelSU integration
-      - name: Integrate KernelSU
+      - name: Clone KernelSU
+        run: |
+          git clone --depth=1 https://github.com/tiann/KernelSU.git kernel_src/drivers/KernelSU
+
+      - name: Add KernelSU integration patch
+        run: |
+          cat > kernelsu_integration.patch <<'EOF'
+diff --git a/drivers/Makefile b/drivers/Makefile
+index e8f194f..d77b2e8 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@
++# KernelSU integration
++obj-$(CONFIG_KSU) += KernelSU/
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 0f3f0c2..aec6b3e 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@
++source "drivers/KernelSU/Kconfig"
+diff --git a/arch/arm64/configs/vendor/a42xq_eur_open_defconfig b/arch/arm64/configs/vendor/a42xq_eur_open_defconfig
+index 55e5a7d..f0c0e8c 100644
+--- a/arch/arm64/configs/vendor/a42xq_eur_open_defconfig
++++ b/arch/arm64/configs/vendor/a42xq_eur_open_defconfig
+@@
++CONFIG_KSU=y
+EOF
+          cd kernel_src
+          patch -p1 < ../kernelsu_integration.patch
+
+      - name: (Optional) Integrate SUSFS
+        if: ${{ env.SUSFS_ENABLE == 'true' }}
         run: |
           cd kernel_src
-          if [[ "${{ env.KERNELSU_SOURCE }}" == *".sh" ]]; then
-            curl -LSs "${{ env.KERNELSU_SOURCE }}" | bash -s "${{ env.KERNELSU_BRANCH }}"
-          else
-            git clone "${{ env.KERNELSU_SOURCE }}" -b "${{ env.KERNELSU_BRANCH }}" "${{ env.KERNELSU_NAME }}" --depth=1
-            # manual integration steps (if needed)
-          fi
-
-      # SUSFS integration (if enabled)
-      - name: Integrate SUSFS
-        if: env.SUSFS_ENABLE == 'true'
-        run: |
-          SUSFS_SOURCE=https://gitlab.com/simonpunk/susfs4ksu.git
-          SUSFS_BRANCH=kernel-$(head -n 3 kernel_src/Makefile | grep -E 'VERSION|PATCHLEVEL' | awk '{print $3}' | paste -sd '.')
-          cd kernel_src
-          git clone $SUSFS_SOURCE -b $SUSFS_BRANCH susfs4ksu --depth=1
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-4.19 susfs4ksu --depth=1
           cp susfs4ksu/kernel_patches/fs/* fs/ || true
           cp susfs4ksu/kernel_patches/include/linux/* include/linux/ || true
 
-      # Build kernel
+      - name: Set up toolchains (Clang/GCC)
+        run: |
+          # You can expand this for GCC if needed
+          git clone --depth=1 -b 10.0 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6207600.git clang-custom
+
       - name: Build kernel
         run: |
           export PATH=$GITHUB_WORKSPACE/clang-custom/bin:$PATH
           cd kernel_src
-          make O=out ARCH=arm64 ${{ env.DEFCONFIG_NAME }}
+          make O=out ARCH=arm64 vendor/a42xq_eur_open_defconfig
           make -j$(nproc --all) O=out ARCH=arm64
 
-      # AnyKernel3 packaging
-      - name: AnyKernel3 Packaging
+      - name: Package with AnyKernel3
         run: |
-          cd $GITHUB_WORKSPACE
-          git clone ${{ env.AK3_SOURCE }} -b ${{ env.AK3_BRANCH }} AnyKernel3 --depth=1
+          git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3 --depth=1
           cp kernel_src/out/arch/arm64/boot/Image* AnyKernel3/
           cp -r kernel_src/out/arch/arm64/boot/dtb* AnyKernel3/ 2>/dev/null || true
           cd AnyKernel3
-          zip -r9 ../${{ env.DEVICE_CODENAME }}-kernel-AnyKernel3.zip ./*
+          zip -r9 ../a42xq-kernel-AnyKernel3.zip ./*
 
       - name: Upload AnyKernel3 ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-${{ env.DEVICE_CODENAME }}-AnyKernel3
-          path: ${{ env.DEVICE_CODENAME }}-kernel-AnyKernel3.zip
+          name: Kernel-a42xq-AnyKernel3
+          path: a42xq-kernel-AnyKernel3.zip
