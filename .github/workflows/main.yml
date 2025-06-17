@@ -60,7 +60,7 @@ jobs:
       - name: Fetch toolchains (Clang 10 + GCC 4.9)
         run: |
           mkdir toolchains && cd toolchains
-          git clone --depth=1 -b lineage-20.0 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git
+          git clone --depth=1 -b lineage-20.0 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git clang
           git clone --depth=1 -b androidcc-4.9 https://github.com/rsuntk/toolchains.git google
         working-directory: kernel_root
 
