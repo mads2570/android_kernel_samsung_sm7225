@@ -3,6 +3,8 @@ name: Build on Tag
 on:
   workflow_call:
   workflow_dispatch:
+env:
+  PYTHON_VERSION: "2"
   
 jobs:
   build:
