@@ -5,6 +5,10 @@ on:
   workflow_dispatch:
 env:
   PYTHON_VERSION: "2"
+  CLANG_SOURCE: https://github.com/SN-Abdullah-Al-Noman/llvm-arm-toolchain-ship-10.0.git
+  CLANG_BRANCH: main
+  GCC_64_SOURCE: https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git
+  GCC_64_BRANCH: lineage-19.1
   
 jobs:
   build:
