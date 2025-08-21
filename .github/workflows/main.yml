@@ -5,14 +5,10 @@ on:
   workflow_dispatch:
 env:
   PYTHON_VERSION: "2"
-  CLANG_SOURCE: https://github.com/SN-Abdullah-Al-Noman/llvm-arm-toolchain-ship-10.0.git
-  CLANG_BRANCH: main
-  GCC_64_SOURCE: https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git
-  GCC_64_BRANCH: lineage-19.1
-  
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - name: Checkout kernel source
       uses: actions/checkout@v2
@@ -30,11 +26,11 @@ jobs:
         NAME: Dark-Ages
       with:
         arch: arm64
-        compiler: clang/11
+        compiler: gcc/10
         defconfig: vendor/a42xq_eur_open_defconfig
         image: Image.gz
         dtb: false
-        dtbo: true
+        dtbo: false
         kernelsu: true
         kprobes: false
 
