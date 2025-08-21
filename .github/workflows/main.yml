@@ -30,7 +30,7 @@ jobs:
         NAME: Dark-Ages
       with:
         arch: arm64
-        compiler: gcc/10
+        compiler: clang/11
         defconfig: vendor/a42xq_eur_open_defconfig
         image: Image.gz
         dtb: false
