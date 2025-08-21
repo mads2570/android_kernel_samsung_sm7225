@@ -26,7 +26,7 @@ jobs:
         NAME: Dark-Ages
       with:
         arch: arm64
-        compiler: clang/10
+        compiler: proton-clang/master
         defconfig: vendor/a42xq_eur_open_defconfig
         image: Image.gz
         dtb: false
