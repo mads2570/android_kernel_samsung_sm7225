@@ -21,15 +21,15 @@ jobs:
       uses: lemniskett/android-kernel-actions@master
       id: build
       env:
-        NAME: Dark-Ages-Último
+        NAME: Dark-Ages
       with:
         arch: arm64
         compiler: gcc/10
-        defconfig: vince_defconfig
+        defconfig: vendor/a42xq_eur_open_defconfig
         image: Image.gz
         dtb: false
         dtbo: true
-        kernelsu: false
+        kernelsu: true
         kprobes: false
 
     - name: Release build
